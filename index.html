@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>75 Smart Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f0f0e; color: #e0d7c6; overflow-x: hidden; }
+        .font-serif { font-family: 'Cormorant Garamond', serif; }
+        .custom-scroll::-webkit-scrollbar { width: 3px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #0f0f0e; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .selection-style::selection { background-color: #4a3f35; color: white; }
+        
+        /* Animation for fade-ins */
+        .fade-in { animation: fadeIn 0.8s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="selection-style pb-40">
+    <div id="app">
+        <!-- Background Pattern -->
+        <div class="fixed inset-0 opacity-[0.02] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+
+        <!-- Navigation -->
+        <nav class="relative z-50 border-b border-[#222] bg-[#0f0f0e]/80 backdrop-blur-md sticky top-0 px-6 py-4">
+            <div class="max-w-4xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="router.navigate('main')">
+                    <div class="w-8 h-8 bg-[#d4c3a1] rounded flex items-center justify-center text-[#0f0f0e] font-bold">75</div>
+                    <span class="font-serif text-xl tracking-tight text-[#f2e8d5]">Smart</span>
+                </div>
+                <button onclick="router.navigate('profile')" class="text-[#8c7e6a] hover:text-[#d4c3a1] transition-colors">
+                    <i data-lucide="user" class="w-[18px]"></i>
+                </button>
+            </div>
+        </nav>
+
+        <main id="main-content" class="relative z-10 max-w-2xl mx-auto px-6 pt-16">
+            <!-- Content dynamically injected here -->
+        </main>
+
+        <!-- Floating Progress Bar -->
+        <div id="floating-progress" class="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-[#0f0f0e] via-[#0f0f0e] to-transparent z-40 transition-all duration-700 translate-y-10 opacity-0 pointer-events-none">
+            <div class="max-w-2xl mx-auto bg-[#161614]/80 backdrop-blur-md p-4 rounded-2xl border border-[#222] shadow-xl">
+                <div class="flex justify-between items-center mb-3 px-2">
+                    <span class="text-[10px] uppercase tracking-[0.2em] text-[#8c7e6a] font-bold">Progress Vector</span>
+                    <span id="progress-percent" class="text-xs font-mono text-[#d4c3a1] bg-[#0f0f0e] px-2 py-1 rounded border border-[#222]">0%</span>
+                </div>
+                <div class="h-2 w-full bg-[#0f0f0e] rounded-full overflow-hidden border border-[#222]">
+                    <div id="progress-bar-fill" class="h-full bg-[#d4c3a1] transition-all duration-[1500ms] rounded-full shadow-[0_0_15px_rgba(212,195,161,0.4)]" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div id="modal-container" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#000]/80 backdrop-blur-sm"></div>
+    </div>
+
+    <script>
+        // --- CONFIG & STATE ---
+        const STORAGE_KEY = 'smart_75_tracker_data_html_v2';
+        const TOTAL_DAYS = 75;
+        const RULES = [
+            { id: 'focus1', label: 'Deep Focus Session 1 (30-45m)', icon: 'timer', hasJournal: true },
+            { id: 'focus2', label: 'Deep Focus Session 2 (30-45m)', icon: 'timer', hasJournal: true },
+            { id: 'meta', label: 'Meta Learning (15m)', icon: 'brain', hasJournal: true },
+            { id: 'reading', label: 'Non-Fiction (10+ Pages)', icon: 'book-open', hasJournal: true },
+            { id: 'output', label: 'Intellectual Output', icon: 'pen-tool', hasJournal: true },
+            { id: 'scrolling', label: 'No scrolling before 5PM', icon: 'smartphone', hasJournal: false },
+        ];
+
+        let state = {
+            view: 'main',
+            userData: null,
+            expandedId: null
+        };
+
+        // --- CORE LOGIC ---
+        function init() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                state.userData = JSON.parse(saved);
+            } else {
+                state.userData = {
+                    startDate: new Date().toISOString(),
+                    history: {},
+                    displayName: 'Student',
+                    lastUpdated: new Date().toISOString()
+                };
+                save();
+            }
+            render();
+            setupScrollListener();
+        }
+
+        function save() {
+            state.userData.lastUpdated = new Date().toISOString();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.userData));
+        }
+
+        function calculateDay() {
+            const start = new Date(state.userData.startDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            start.setHours(0, 0, 0, 0);
+            const diffTime = today.getTime() - start.getTime();
+            const currentDay = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            return Math.max(1, Math.min(currentDay, TOTAL_DAYS));
+        }
+
+        // --- ACTIONS ---
+        const actions = {
+            toggleTask: (id) => {
+                const todayKey = new Date().toISOString().split('T')[0];
+                if (!state.userData.history[todayKey]) state.userData.history[todayKey] = {};
+                state.userData.history[todayKey][id] = !state.userData.history[todayKey][id];
+                save();
+                render();
+            },
+            updateNote: (id, text) => {
+                const todayKey = new Date().toISOString().split('T')[0];
+                if (!state.userData.history[todayKey]) state.userData.history[todayKey] = {};
+                state.userData.history[todayKey][id + '_note'] = text;
+                save();
+                // We don't full render on input to avoid losing focus, 
+                // but we save to local storage.
+            },
+            toggleExpand: (id) => {
+                state.expandedId = state.expandedId === id ? null : id;
+                render();
+            },
+            resetData: () => {
+                if (confirm('Are you sure you want to delete all progress? This cannot be undone.')) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    window.location.reload();
+                }
+            }
+        };
+
+        const router = {
+            navigate: (view) => {
+                state.view = view;
+                render();
+                window.scrollTo(0, 0);
+            }
+        };
+
+        // --- RENDER ENGINE ---
+        function render() {
+            const container = document.getElementById('main-content');
+            const day = calculateDay();
+            const todayKey = new Date().toISOString().split('T')[0];
+            const todayHistory = state.userData.history[todayKey] || {};
+
+            if (state.view === 'main') {
+                container.innerHTML = `
+                    <div class="space-y-12 fade-in">
+                        <div class="flex flex-col items-center justify-center text-center space-y-2">
+                            <span class="text-[#8c7e6a] uppercase tracking-[0.2em] text-[10px] font-medium">Daily Objective</span>
+                            <h2 class="text-6xl font-serif text-[#d4c3a1] font-light tracking-tight">Day ${day}</h2>
+                            <div class="w-12 h-[1px] bg-[#333] my-4"></div>
+                        </div>
+                        <div class="grid gap-4">
+                            ${RULES.map(rule => renderTaskCard(rule, todayHistory)).join('')}
+                        </div>
+                        <div class="pt-8 flex flex-col items-center">
+                            <button onclick="router.navigate('archives')" class="flex items-center gap-2 px-6 py-3 rounded-full border border-[#222] text-[#8c7e6a] hover:text-[#d4c3a1] hover:border-[#d4c3a1] transition-all text-[11px] uppercase tracking-widest font-semibold">
+                                Past Entries <i data-lucide="chevron-right" class="w-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (state.view === 'profile') {
+                container.innerHTML = `
+                    <div class="space-y-10 fade-in">
+                        <header class="flex justify-between items-center">
+                            <h2 class="text-3xl font-serif text-[#d4c3a1]">Settings</h2>
+                            <button onclick="router.navigate('main')" class="text-[#8c7e6a] hover:text-[#d4c3a1] text-[10px] uppercase tracking-widest">Back</button>
+                        </header>
+                        <div class="bg-[#161614] rounded-2xl border border-[#222] p-8">
+                            <div class="flex items-center gap-6 mb-8">
+                                <div class="w-16 h-16 rounded-full border border-[#222] p-1">
+                                    <div class="w-full h-full rounded-full bg-[#1a1a18] flex items-center justify-center text-[#d4c3a1]"><i data-lucide="user" class="w-6"></i></div>
+                                </div>
+                                <div class="flex-1">
+                                    <input onchange="state.userData.displayName = this.value; save();" class="bg-transparent border-none focus:ring-0 text-xl font-serif text-[#f2e8d5] p-0 w-full" value="${state.userData.displayName}">
+                                    <p class="text-[10px] uppercase tracking-widest text-[#5c5448] mt-1">Local Profile</p>
+                                </div>
+                            </div>
+                            <div class="space-y-4 pt-4 border-t border-[#222]">
+                                <div class="flex items-center justify-between p-4 bg-[#0f0f0e] rounded-xl border border-[#222]">
+                                    <div class="flex items-center gap-3">
+                                        <i data-lucide="save" class="w-4 text-[#d4c3a1]"></i>
+                                        <span class="text-xs">Storage: LocalBrowser</span>
+                                    </div>
+                                    <span class="text-[10px] text-green-500 font-bold uppercase tracking-widest">Active</span>
+                                </div>
+                                <button onclick="actions.resetData()" class="w-full flex items-center justify-center gap-2 text-[#5c5448] hover:text-red-500 py-3 text-[10px] uppercase tracking-[0.2em] transition-colors mt-8">
+                                    <i data-lucide="trash-2" class="w-3"></i> Clear All Progress
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.view === 'archives') {
+                container.innerHTML = `
+                    <div class="space-y-10 fade-in">
+                         <header class="flex justify-between items-center">
+                            <h2 class="text-3xl font-serif text-[#d4c3a1]">Archives</h2>
+                            <button onclick="router.navigate('main')" class="text-[#8c7e6a] hover:text-[#d4c3a1] text-[10px] uppercase tracking-widest">Back</button>
+                        </header>
+                        <div class="grid grid-cols-5 sm:grid-cols-10 gap-3">
+                            ${Array.from({ length: 75 }).map((_, i) => {
+                                const dayNum = i + 1;
+                                const isPassed = dayNum < day;
+                                const isCurrent = dayNum === day;
+                                
+                                // Enhanced visibility for past days
+                                let styleClasses = "aspect-square rounded-md flex items-center justify-center text-[10px] border transition-all ";
+                                if (isPassed) {
+                                    styleClasses += "bg-[#161614] border-[#333] text-[#8c7e6a] hover:border-[#d4c3a1] hover:text-[#d4c3a1]";
+                                } else if (isCurrent) {
+                                    styleClasses += "bg-[#d4c3a1] border-[#d4c3a1] text-[#0f0f0e] font-bold ring-2 ring-[#d4c3a1]/20";
+                                } else {
+                                    styleClasses += "border-[#1a1a18] text-[#222] cursor-default";
+                                }
+
+                                return `
+                                    <button onclick="${(isPassed || isCurrent) ? `showDayDetails(${dayNum})` : ''}" class="${styleClasses}">
+                                        ${dayNum}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Update Progress Bar
+            const percent = Math.round((day / TOTAL_DAYS) * 100);
+            document.getElementById('progress-percent').innerText = percent + '%';
+            document.getElementById('progress-bar-fill').style.width = percent + '%';
+
+            lucide.createIcons();
+        }
+
+        function renderTaskCard(rule, history) {
+            const isDone = !!history[rule.id];
+            const isExpanded = state.expandedId === rule.id;
+            const note = history[rule.id + '_note'] || '';
+            
+            return `
+                <div class="rounded-xl border transition-all duration-300 overflow-hidden ${isDone ? 'bg-[#1a1a18] border-[#2a2a26]' : 'bg-[#161614] border-[#222] hover:border-[#333]'}">
+                    <div class="flex items-stretch">
+                        <button onclick="actions.toggleTask('${rule.id}')" class="p-6 flex items-center gap-5 flex-1 text-left">
+                            <div class="p-2 rounded-lg transition-colors ${isDone ? 'bg-[#222] text-[#4a3f35]' : 'bg-[#1a1a18] text-[#d4c3a1]'}">
+                                <i data-lucide="${rule.icon}" class="w-5"></i>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-sm md:text-base font-medium tracking-tight transition-all duration-500 ${isDone ? 'line-through opacity-40 text-[#635a4d]' : 'text-[#c7b9a2]'}">${rule.label}</span>
+                                ${isDone && note && !isExpanded ? `<span class="text-[10px] italic text-[#8c7e6a] mt-1 line-clamp-1">"${note}"</span>` : ''}
+                            </div>
+                        </button>
+                        <div class="flex items-center px-4 gap-2">
+                            ${rule.hasJournal ? `<button onclick="actions.toggleExpand('${rule.id}')" class="p-2 rounded-full transition-colors ${isExpanded ? 'text-[#d4c3a1] bg-[#222]' : 'text-[#5c5448] hover:text-[#8c7e6a]'}"><i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" class="w-4"></i></button>` : ''}
+                            <div onclick="actions.toggleTask('${rule.id}')" class="w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all ${isDone ? 'bg-[#d4c3a1] border-[#d4c3a1]' : 'border-[#333]'}">
+                                ${isDone ? '<i data-lucide="check-circle-2" class="w-3.5 text-[#0f0f0e]"></i>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ${isExpanded ? `
+                        <div class="px-6 pb-6 pt-2">
+                            <textarea oninput="actions.updateNote('${rule.id}', this.value)" placeholder="Daily reflections..." class="w-full bg-[#0f0f0e] border border-[#222] rounded-lg p-3 text-xs text-[#d4c3a1] focus:border-[#4a3f35] focus:outline-none placeholder:text-[#5c5448] transition-all h-24 resize-none">${note}</textarea>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function showDayDetails(dayNum) {
+            const start = new Date(state.userData.startDate);
+            start.setHours(0, 0, 0, 0);
+            const targetDate = new Date(start);
+            targetDate.setDate(start.getDate() + (dayNum - 1));
+            const dateKey = targetDate.toISOString().split('T')[0];
+            const history = state.userData.history[dateKey] || {};
+            const dateString = targetDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            const modal = document.getElementById('modal-container');
+            modal.innerHTML = `
+                <div class="bg-[#161614] border border-[#2a2a26] rounded-2xl w-full max-w-lg p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 text-[#5c5448] hover:text-[#d4c3a1]"><i data-lucide="x" class="w-5"></i></button>
+                    <div class="text-center mb-6">
+                        <span class="text-[10px] uppercase tracking-[0.2em] text-[#8c7e6a]">Day ${dayNum} Review</span>
+                        <h3 class="text-2xl font-serif text-[#d4c3a1] mt-1">${dateString}</h3>
+                    </div>
+                    <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scroll">
+                        ${RULES.map(rule => {
+                            const done = !!history[rule.id];
+                            const note = history[rule.id + '_note'];
+                            return `
+                                <div class="border-b border-[#222] pb-4">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="${done ? 'text-green-500' : 'text-[#333]'}">${done ? '<i data-lucide="check-circle-2" class="w-4"></i>' : '<div class="w-4 h-4 rounded-full border border-current"></div>'}</div>
+                                        <span class="text-sm ${done ? 'text-[#e0d7c6]' : 'text-[#444]'}">${rule.label}</span>
+                                    </div>
+                                    ${note ? `<div class="ml-7 text-xs italic text-[#8c7e6a] bg-[#0f0f0e] p-3 rounded-lg border border-[#222]">"${note}"</div>` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        function setupScrollListener() {
+            window.addEventListener('scroll', () => {
+                const el = document.getElementById('floating-progress');
+                if (window.scrollY > 100) {
+                    el.classList.remove('translate-y-10', 'opacity-0', 'pointer-events-none');
+                    el.classList.add('translate-y-0', 'opacity-100');
+                } else {
+                    el.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+                    el.classList.remove('translate-y-0', 'opacity-100');
+                }
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
