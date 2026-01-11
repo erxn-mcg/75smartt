@@ -25,6 +25,14 @@
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
+    <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init ts ns yi rs os Qr es capture Hi calculateEventProperties hs register register_once register_for_session unregister unregister_for_session fs getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty vs us createPersonProfile cs Yr ps opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing ls debug O ds getPageViewId captureTraceFeedback captureTraceMetric Vr".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_5SJc2Mr36gWaIqW5y78Phf7C33mRaFIJNKWqfPRmMls', {
+        api_host: 'https://eu.i.posthog.com',
+        defaults: '2025-11-30',
+        person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
+    })
+</script>
 </head>
 <body class="selection-style pb-40">
     <div id="app">
@@ -91,7 +99,8 @@
                 state.userData = JSON.parse(saved);
             } else {
                 state.userData = {
-                    startDate: new Date().toISOString(),
+                    // Hardcoded start date: Monday, Jan 12, 2026
+                    startDate: "2026-01-12T00:00:00.000Z",
                     history: {},
                     displayName: 'Student',
                     lastUpdated: new Date().toISOString()
@@ -135,8 +144,20 @@
                 // but we save to local storage.
             },
             toggleExpand: (id) => {
+                const prevId = state.expandedId;
                 state.expandedId = state.expandedId === id ? null : id;
-                render();
+
+                // Only update the affected cards
+                [id, prevId].forEach(ruleId => {
+                    if (!ruleId) return;
+                    const rule = RULES.find(r => r.id === ruleId);
+                    const todayKey = new Date().toISOString().split('T')[0];
+                    const todayHistory = state.userData.history[todayKey] || {};
+                    const card = document.getElementById(`task-card-${ruleId}`);
+                    if (card) card.outerHTML = renderTaskCard(rule, todayHistory);
+                });
+
+                lucide.createIcons();
             },
             resetData: () => {
                 if (confirm('Are you sure you want to delete all progress? This cannot be undone.')) {
@@ -231,7 +252,8 @@
                                 } else if (isCurrent) {
                                     styleClasses += "bg-[#d4c3a1] border-[#d4c3a1] text-[#0f0f0e] font-bold ring-2 ring-[#d4c3a1]/20";
                                 } else {
-                                    styleClasses += "border-[#1a1a18] text-[#222] cursor-default";
+                                    // Make future days more visible
+                                    styleClasses += "bg-[#23221f] border-[#333] text-[#8c7e6a] opacity-60 cursor-default";
                                 }
 
                                 return `
@@ -240,6 +262,14 @@
                                     </button>
                                 `;
                             }).join('')}
+                        </div>
+                        <div class="flex gap-4 pt-4">
+                            <button onclick="exportBackup()" class="px-4 py-2 rounded border border-[#222] text-xs text-[#8c7e6a] hover:text-[#d4c3a1] hover:border-[#d4c3a1] transition-all">
+                                Export Backup
+                            </button>
+                            <button onclick="showImportModal()" class="px-4 py-2 rounded border border-[#222] text-xs text-[#8c7e6a] hover:text-[#d4c3a1] hover:border-[#d4c3a1] transition-all">
+                                Restore Backup
+                            </button>
                         </div>
                     </div>
                 `;
@@ -259,7 +289,7 @@
             const note = history[rule.id + '_note'] || '';
             
             return `
-                <div class="rounded-xl border transition-all duration-300 overflow-hidden ${isDone ? 'bg-[#1a1a18] border-[#2a2a26]' : 'bg-[#161614] border-[#222] hover:border-[#333]'}">
+                <div id="task-card-${rule.id}" class="rounded-xl border transition-all duration-300 overflow-hidden ${isDone ? 'bg-[#1a1a18] border-[#2a2a26]' : 'bg-[#161614] border-[#222] hover:border-[#333]'}">
                     <div class="flex items-stretch">
                         <button onclick="actions.toggleTask('${rule.id}')" class="p-6 flex items-center gap-5 flex-1 text-left">
                             <div class="p-2 rounded-lg transition-colors ${isDone ? 'bg-[#222] text-[#4a3f35]' : 'bg-[#1a1a18] text-[#d4c3a1]'}">
@@ -339,6 +369,47 @@
                     el.classList.remove('translate-y-0', 'opacity-100');
                 }
             });
+        }
+
+        function exportBackup() {
+            const data = JSON.stringify(state.userData, null, 2);
+            const blob = new Blob([data], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'smart75_backup.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showImportModal() {
+            const modal = document.getElementById('modal-container');
+            modal.innerHTML = `
+                <div class="bg-[#161614] border border-[#2a2a26] rounded-2xl w-full max-w-lg p-8 shadow-2xl relative fade-in">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 text-[#5c5448] hover:text-[#d4c3a1]"><i data-lucide="x" class="w-5"></i></button>
+                    <h3 class="text-xl font-serif text-[#d4c3a1] mb-4">Restore Backup</h3>
+                    <textarea id="import-text" class="w-full h-40 bg-[#0f0f0e] border border-[#222] rounded-lg p-3 text-xs text-[#d4c3a1] mb-4" placeholder="Paste backup text here"></textarea>
+                    <button onclick="importBackup()" class="w-full px-4 py-2 rounded border border-[#222] text-xs text-[#8c7e6a] hover:text-[#d4c3a1] hover:border-[#d4c3a1] transition-all">
+                        Restore
+                    </button>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function importBackup() {
+            const text = document.getElementById('import-text').value;
+            try {
+                const data = JSON.parse(text);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                window.location.reload();
+            } catch (e) {
+                alert('Invalid backup format!');
+            }
         }
 
         window.onload = init;
