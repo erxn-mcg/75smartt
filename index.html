@@ -100,8 +100,7 @@
                 state.userData = JSON.parse(saved);
             } else {
                 state.userData = {
-                    // Hardcoded start date: Monday, Jan 12, 2026
-                    startDate: "2026-01-12T00:00:00.000Z",
+                    startDate: "2026-01-12", // Use local date string, no time or Z
                     history: {},
                     displayName: 'Student',
                     lastUpdated: new Date().toISOString()
@@ -118,7 +117,8 @@
         }
 
         function calculateDay() {
-            const start = new Date(state.userData.startDate);
+            // Parse as local date
+            const start = new Date(state.userData.startDate + "T00:00:00");
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             start.setHours(0, 0, 0, 0);
@@ -417,3 +417,4 @@
     </script>
 </body>
 </html>
+
