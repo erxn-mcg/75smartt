@@ -164,6 +164,14 @@
                     localStorage.removeItem(STORAGE_KEY);
                     window.location.reload();
                 }
+            },
+            resetStartDate: () => {
+                if (confirm('Reset your start date to Monday, Jan 12, 2026? This will recalculate your days.')) {
+                    state.userData.startDate = "2026-01-12T00:00:00";
+                    save();
+                    render();
+                    alert('Start date reset! Day 1 is now Monday, Jan 12, 2026.');
+                }
             }
         };
 
@@ -227,6 +235,9 @@
                                 </div>
                                 <button onclick="actions.resetData()" class="w-full flex items-center justify-center gap-2 text-[#5c5448] hover:text-red-500 py-3 text-[10px] uppercase tracking-[0.2em] transition-colors mt-8">
                                     <i data-lucide="trash-2" class="w-3"></i> Clear All Progress
+                                </button>
+                                <button onclick="actions.resetStartDate()" class="w-full flex items-center justify-center gap-2 text-[#5c5448] hover:text-[#d4c3a1] py-3 text-[10px] uppercase tracking-[0.2em] transition-colors">
+                                    <i data-lucide="calendar" class="w-3"></i> Reset Start Date to Jan 12, 2026
                                 </button>
                             </div>
                         </div>
@@ -416,3 +427,4 @@
     </script>
 </body>
 </html>
+
